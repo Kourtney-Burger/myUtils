@@ -1,0 +1,624 @@
+---
+title: "Drifter Data - CSV to KML"
+author: "Kourtney Burger"
+date: "2025-01-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+# Load packages
+library(xml2)
+#library(tidyverse)
+```
+
+# Read in data
+```{r}
+data <- read.csv("GPS data/CalCurCEAS_027_GPS.csv")
+
+csv_files <- list.files(path = "GPS data/", pattern = "\\.csv$", full.names = TRUE)
+```
+
+# Create a KML document
+```{r}
+# Function to create KML from multiple CSV files using xml2
+create_kml_from_csv <- function(csv_files, kml_output) {
+  
+  # Create an empty KML structure using xml2
+  kml_data <- xml_new_root("kml", xmlns = "http://www.opengis.net/kml/2.2")
+  document_node <- xml_add_child(kml_data, "Document")
+  
+  # Loop through each CSV file
+  for (csv_file in csv_files) {
+    
+    # Read the CSV file
+    data <- read.csv(csv_file)
+    
+    # Check for required columns
+    if (!all(c("Latitude", "Longitude", "UTC") %in% colnames(data))) {
+      stop(paste("CSV file", csv_file, "does not have the required columns"))
+    }
+    
+    # Loop through each row of the CSV data
+    for (i in 1:nrow(data)) {
+      
+      # Create a placemark for each row in the CSV
+      placemark <- xml_add_child(document_node, "Placemark")
+      
+      # Add the name (can be based on the timestamp or other fields)
+      xml_add_child(placemark, "name", paste("Point at", data$UTC[i]))
+      
+      # Add timestamp (convert to TimeStamp tag)
+      time_node <- xml_add_child(placemark, "TimeStamp")
+      xml_add_child(time_node, "when", data$UTC[i])
+      
+      # Add the Point and coordinates
+      point_node <- xml_add_child(placemark, "Point")
+      coords <- paste(data$Longitude[i], data$Latitude[i], "0", sep = ",")
+      xml_add_child(point_node, "coordinates", coords)
+    }
+  }
+  
+  # Save the KML to the specified output file
+  write_xml(kml_data, kml_output)
+  cat("KML file created:", kml_output, "\n")
+}
+```
+
+# Test with all CalCurCEAS data 
+  - note, this crashed Google Earth 
+```{r}
+# Define the path to the "GPS data" folder
+folder_path <- "GPS data"
+
+# Get the list of CSV files in the folder
+csv_files <- list.files(path = folder_path, pattern = "\\.csv$", full.names = TRUE)
+
+# Check the CSV files in the folder
+print(csv_files)
+
+# Define the output KML file
+kml_output <- "output.kml"
+
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+```
+
+
+# Test with Oregon Subset
+```{r}
+# Define the path to the "GPS data" folder
+folder_path <- "GPS data/Oregon Subset/"
+
+# Get the list of CSV files in the folder
+csv_files <- list.files(path = folder_path, pattern = "\\.csv$", full.names = TRUE)
+
+# Check the CSV files in the folder
+print(csv_files)
+
+# Define the output KML file
+kml_output <- "OregonTest.kml"
+
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+```
+
+
+
+```{r}
+ylab <- 'Knots'
+plotCol <- 'knots'
+},
+'kmh' = {
+ylab <- 'Km/Hour'
+plotCol <- 'kmh'
+gps$kmh <- gps$knots * 1.852
+lastPoint$kmh <- lastPoint$knots * 1.852
+}
+)
+g <- ggplot() +
+geom_line(data=gps, aes(x=UTC, y=.data[[plotCol]], col=DriftName)) +
+geom_label(data=lastPoint, aes(x=UTC, y=.data[[plotCol]], label=round(.data[[plotCol]], 2), col=DriftName),
+fontface='bold', show.legend=FALSE) +
+geom_vline(xintercept=nowUTC()) +
+xlim(c(min(gps$UTC), nowUTC())) +
+ylab(ylab) +
+xlab(tz)
+if(message) {
+for(i in 1:nrow(lastPoint)) {
+thisMessage <- paste0(
+lastPoint$DriftName[i],
+' last update ',
+format(lastPoint$UTC[i], format='%Y-%m-%d %H:%M:%S', tz=tz),
+' (', tz, '), ',
+round(lastPoint$Latitude[i], 6), ', ',
+round(lastPoint$Longitude[i], 6),'\n'
+)
+cat(thisMessage)
+}
+}
+g
+}
+library(here)
+source(here('DriftWatchFunctions.R'))
+db <- here('SPOTGPS_Logger.sqlite3')
+gps <- getDbDeployment(db)
+str(gps)
+pascal <- filter(gps, grepl('PASCAL_', DriftName))
+plotAPIDrift(pascal, simple=TRUE, current=FALSE)
+library(here)
+source(here('DriftWatchFunctions.R'))
+db <- here('SPOTGPS_Logger.sqlite3')
+library(here)
+source(here('DriftWatchFunctions.R'))
+db <- here('SPOTGPS_Logger.sqlite3')
+gps <- getDbDeployment(db)
+str(gps)
+pascal <- filter(gps, grepl('PASCAL_', DriftName))
+plotAPIDrift(pascal, simple=TRUE, current=FALSE)
+# Load packages
+library('tidyverse')
+library('XML')
+install.packages("XML")
+r
+library('XML')
+data <- read.csv("CalCurCEAS_027_GPS.csv")
+kml_header <- '<?xml version="1.0" encoding="UTF-8"?>
+<KML xmlns="http://www.opengis.net/kml/2.2"
+xmlns:gx="http://www.google.com/kml/ext/2.2">
+<Document>
+<name>Time-based Data</name>'
+kml_footer <- '</Document>
+</KML>'
+# Start the KML content with the header
+kml_content <- kml_header
+for (i in 1:nrow(data)) {
+# Extract latitude, longitude, and UTC time
+lat <- data$Latitude[i]
+lon <- data$Longitude[i]
+utc_time <- data$UTC[i]
+# Format UTC time for KML
+formatted_time <- as.POSIXct(utc_time, format="%Y-%m-%dT%H:%M:%SZ", tz="UTC")
+formatted_time_str <- format(formatted_time, "%Y-%m-%dT%H:%M:%SZ")
+# Create a Placemark with TimeStamp
+kml_content <- paste0(kml_content, '
+<Placemark>
+<name>Point at ', formatted_time_str, '</name>
+<TimeStamp>
+<when>', formatted_time_str, '</when>
+</TimeStamp>
+<Point>
+<coordinates>', lon, ',', lat, ',0</coordinates>
+</Point>
+</Placemark>')
+}
+# Close the KML document with the footer
+kml_content <- paste0(kml_content, kml_footer)
+knitr::opts_chunk$set(echo = TRUE)
+# Load packages
+library('tidyverse')
+library('XML')
+data <- read.csv("CalCurCEAS_027_GPS.csv")
+kml_header <- '<?xml version="1.0" encoding="UTF-8"?>
+<KML xmlns="http://www.opengis.net/kml/2.2"
+xmlns:gx="http://www.google.com/kml/ext/2.2">
+<Document>
+<name>Time-based Data</name>'
+kml_footer <- '</Document>
+</KML>'
+# Start the KML content with the header
+kml_content <- kml_header
+# Function to convert CSV to KML
+csv_to_kml <- function(csv_file, kml_file) {
+# Read the CSV data
+data <- read_csv(csv_file)
+# Create an empty KML document structure
+kml_header <- '<?xml version="1.0" encoding="UTF-8"?>
+<KML xmlns="http://www.opengis.net/kml/2.2"
+xmlns:gx="http://www.google.com/kml/ext/2.2">
+<Document>
+<name>Time-based Data</name>'
+kml_footer <- '</Document>
+</KML>'
+# Start the KML content with the header
+kml_content <- kml_header
+# Loop through each row in the CSV and generate KML
+for (i in 1:nrow(data)) {
+# Extract latitude, longitude, and UTC time
+lat <- data$Latitude[i]
+lon <- data$Longitude[i]
+utc_time <- data$UTC[i]
+# Format UTC time for KML
+formatted_time <- as.POSIXct(utc_time, format="%Y-%m-%dT%H:%M:%SZ", tz="UTC")
+formatted_time_str <- format(formatted_time, "%Y-%m-%dT%H:%M:%SZ")
+# Create a Placemark with TimeStamp
+kml_content <- paste0(kml_content, '
+<Placemark>
+<name>Point at ', formatted_time_str, '</name>
+<TimeStamp>
+<when>', formatted_time_str, '</when>
+</TimeStamp>
+<Point>
+<coordinates>', lon, ',', lat, ',0</coordinates>
+</Point>
+</Placemark>')
+}
+# Close the KML document with the footer
+kml_content <- paste0(kml_content, kml_footer)
+# Write the KML content to the output file
+writeLines(kml_content, kml_file)
+cat("KML file created:", kml_file, "\n")
+}
+#csv_to_kml("CalCurCEAS_027_GPS.csv", "output.kml")
+csv_to_kml("CalCurCEAS_027_GPS.csv", "output.kml")
+kml_footer <- '</Document>
+csv_files <- list.files(path = "GPS data/", pattern = "\\.csv$", full.names = TRUE)
+csv_files <- list.files(path = "GPS data/", pattern = "\\.csv$", full.names = TRUE)
+create_kml_from_csv <- function(csv_files, kml_output) {
+# Create an empty KML structure
+kml_data <- xmlTreeNode("kml", attrs = c(xmlns = "http://www.opengis.net/kml/2.2"))
+document_node <- newXMLNode("Document", parent = kml_data)
+# Loop through each CSV file
+for (csv_file in csv_files) {
+# Read the CSV file
+data <- read.csv(csv_file)
+# Check for required columns
+if (!all(c("Latitude", "Longitude", "UTC") %in% colnames(data))) {
+stop(paste("CSV file", csv_file, "does not have the required columns"))
+}
+# Loop through each row of the CSV data
+for (i in 1:nrow(data)) {
+# Create a placemark for each row in the CSV
+placemark <- newXMLNode("Placemark", parent = document_node)
+# Add the name (can be based on the timestamp or other fields)
+newXMLNode("name", paste("Point at", data$UTC[i]), parent = placemark)
+# Add timestamp (convert to TimeStamp tag)
+time_node <- newXMLNode("TimeStamp", parent = placemark)
+newXMLNode("when", data$UTC[i], parent = time_node)
+# Add the Point and coordinates
+point_node <- newXMLNode("Point", parent = placemark)
+coords <- paste(data$Longitude[i], data$Latitude[i], "0", sep = ",")
+newXMLNode("coordinates", coords, parent = point_node)
+}
+}
+# Save the KML to the specified output file
+saveXML(kml_data, file = kml_output)
+cat("KML file created:", kml_output, "\n")
+}
+#csv_to_kml("CalCurCEAS_027_GPS.csv", "output.kml")
+# Test with all CalCurCEAS gps files
+create_kml_from_csv(csv_files, kml_output)
+# Test with all CalCurCEAS gps files
+csv_files <- list.files(path = "GPS data/", pattern = "\\.csv$", full.names = TRUE)  # List of CSV files
+kml_output <- "output.kml"  # Output KML file
+create_kml_from_csv(csv_files, kml_output)
+library('XML')
+create_kml_from_csv <- function(csv_files, kml_output) {
+# Create an empty KML structure
+kml_data <- xmlTreeNode("kml", attrs = c(xmlns = "http://www.opengis.net/kml/2.2"))
+document_node <- newXMLNode("Document", parent = kml_data)
+# Loop through each CSV file
+for (csv_file in csv_files) {
+# Read the CSV file
+data <- read.csv(csv_file)
+# Check for required columns
+if (!all(c("Latitude", "Longitude", "UTC") %in% colnames(data))) {
+stop(paste("CSV file", csv_file, "does not have the required columns"))
+}
+# Loop through each row of the CSV data
+for (i in 1:nrow(data)) {
+# Create a placemark for each row in the CSV
+placemark <- newXMLNode("Placemark", parent = document_node)
+# Add the name (can be based on the timestamp or other fields)
+newXMLNode("name", paste("Point at", data$UTC[i]), parent = placemark)
+# Add timestamp (convert to TimeStamp tag)
+time_node <- newXMLNode("TimeStamp", parent = placemark)
+newXMLNode("when", data$UTC[i], parent = time_node)
+# Add the Point and coordinates
+point_node <- newXMLNode("Point", parent = placemark)
+coords <- paste(data$Longitude[i], data$Latitude[i], "0", sep = ",")
+newXMLNode("coordinates", coords, parent = point_node)
+}
+}
+# Save the KML to the specified output file
+saveXML(kml_data, file = kml_output)
+cat("KML file created:", kml_output, "\n")
+}
+# Test with only one file
+#csv_to_kml("CalCurCEAS_027_GPS.csv", "output.kml")
+# Test with all CalCurCEAS gps files
+csv_files <- list.files(path = "GPS data/", pattern = "\\.csv$", full.names = TRUE)  # List of CSV files
+kml_output <- "output.kml"  # Output KML file
+create_kml_from_csv(csv_files, kml_output)
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+csv_files <- list.files(path = folder_path, pattern = "\\.csv$", full.names = TRUE)
+# Check the CSV files in the folder
+print(csv_files)
+create_kml_from_csv <- function(csv_files, kml_output) {
+# Create an empty KML structure
+kml_data <- xmlTreeNode("kml", attrs = c(xmlns = "http://www.opengis.net/kml/2.2"))
+document_node <- newXMLNode("Document", parent = kml_data)
+# Loop through each CSV file
+for (csv_file in csv_files) {
+# Read the CSV file
+data <- read.csv(csv_file)
+# Check for required columns
+if (!all(c("Latitude", "Longitude", "UTC") %in% colnames(data))) {
+stop(paste("CSV file", csv_file, "does not have the required columns"))
+}
+# Loop through each row of the CSV data
+for (i in 1:nrow(data)) {
+# Create a placemark for each row in the CSV
+placemark <- newXMLNode("Placemark", parent = document_node)
+# Add the name (can be based on the timestamp or other fields)
+newXMLNode("name", paste("Point at", data$UTC[i]), parent = placemark)
+# Add timestamp (convert to TimeStamp tag)
+time_node <- newXMLNode("TimeStamp", parent = placemark)
+newXMLNode("when", data$UTC[i], parent = time_node)
+# Add the Point and coordinates
+point_node <- newXMLNode("Point", parent = placemark)
+coords <- paste(data$Longitude[i], data$Latitude[i], "0", sep = ",")
+newXMLNode("coordinates", coords, parent = point_node)
+}
+}
+# Save the KML to the specified output file
+saveXML(kml_data, file = kml_output)
+cat("KML file created:", kml_output, "\n")
+}
+# Define the path to the "GPS data" folder
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+csv_files <- list.files(path = folder_path, pattern = "\\.csv$", full.names = TRUE)
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+install.packages("XML")  # Install XML if not installed
+library(XML)             # Load XML library
+install.packages("XML")
+knitr::opts_chunk$set(echo = TRUE)
+# Load packages
+library('tidyverse')
+library('XML')
+create_kml_from_csv <- function(csv_files, kml_output) {
+# Create an empty KML structure
+kml_data <- xmlTreeNode("kml", attrs = c(xmlns = "http://www.opengis.net/kml/2.2"))
+document_node <- newXMLNode("Document", parent = kml_data)
+# Loop through each CSV file
+for (csv_file in csv_files) {
+# Read the CSV file
+data <- read.csv(csv_file)
+# Check for required columns
+if (!all(c("Latitude", "Longitude", "UTC") %in% colnames(data))) {
+stop(paste("CSV file", csv_file, "does not have the required columns"))
+}
+# Loop through each row of the CSV data
+for (i in 1:nrow(data)) {
+# Create a placemark for each row in the CSV
+placemark <- newXMLNode("Placemark", parent = document_node)
+# Add the name (can be based on the timestamp or other fields)
+newXMLNode("name", paste("Point at", data$UTC[i]), parent = placemark)
+# Add timestamp (convert to TimeStamp tag)
+time_node <- newXMLNode("TimeStamp", parent = placemark)
+newXMLNode("when", data$UTC[i], parent = time_node)
+# Add the Point and coordinates
+point_node <- newXMLNode("Point", parent = placemark)
+coords <- paste(data$Longitude[i], data$Latitude[i], "0", sep = ",")
+newXMLNode("coordinates", coords, parent = point_node)
+}
+}
+# Save the KML to the specified output file
+saveXML(kml_data, file = kml_output)
+cat("KML file created:", kml_output, "\n")
+}
+# Define the path to the "GPS data" folder
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+csv_files <- list.files(path = folder_path, pattern = "\\.csv$", full.names = TRUE)
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+library('xml2')
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+csv_files <- list.files(path = folder_path, pattern = "\\.csv$", full.names = TRUE)
+# Check the CSV files in the folder
+print(csv_files)
+# Function to create KML from multiple CSV files using xml2
+create_kml_from_csv <- function(csv_files, kml_output) {
+# Create an empty KML structure using xml2
+kml_data <- xml_new_root("kml", xmlns = "http://www.opengis.net/kml/2.2")
+document_node <- xml_add_child(kml_data, "Document")
+# Loop through each CSV file
+for (csv_file in csv_files) {
+# Read the CSV file
+data <- read.csv(csv_file)
+# Check for required columns
+if (!all(c("Latitude", "Longitude", "UTC") %in% colnames(data))) {
+stop(paste("CSV file", csv_file, "does not have the required columns"))
+}
+# Loop through each row of the CSV data
+for (i in 1:nrow(data)) {
+# Create a placemark for each row in the CSV
+placemark <- xml_add_child(document_node, "Placemark")
+# Add the name (can be based on the timestamp or other fields)
+xml_add_child(placemark, "name", paste("Point at", data$UTC[i]))
+# Add timestamp (convert to TimeStamp tag)
+time_node <- xml_add_child(placemark, "TimeStamp")
+xml_add_child(time_node, "when", data$UTC[i])
+# Add the Point and coordinates
+point_node <- xml_add_child(placemark, "Point")
+coords <- paste(data$Longitude[i], data$Latitude[i], "0", sep = ",")
+xml_add_child(point_node, "coordinates", coords)
+}
+}
+# Save the KML to the specified output file
+write_xml(kml_data, kml_output)
+cat("KML file created:", kml_output, "\n")
+}
+# Define the path to the "GPS data" folder
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+csv_files <- list.files(path = folder_path, pattern = "\\.csv$", full.names = TRUE)
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+library(ggplot2)
+library(marmap)
+# Get bathy data -----
+bathy <- getNOAA.bathy(lon1 = -129, lon2 = -123, # set longitude bounds
+lat1 = 40, lat2 = 45, # set latitude bounds
+resolution = 1) # choose resolution (1 is highest)
+blues <- c("lightsteelblue4", "lightsteelblue3", # set custom colors
+"lightsteelblue2", "lightsteelblue1")
+plot(bathy, image = TRUE, land = TRUE, lwd = 1,
+bpal = list(c(0, max(bathy), "grey"),
+c(min(bathy), 0, blues)),
+deepest.isobath = 0, shallowest.isobath = 0)
+bathy <- as.data.frame(bathy)
+colnames(bathy) <- c("lon", "lat", "z")
+# Define the path to the "GPS data" folder
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+csv_files <- c("CalCurCEAS_006_GPS.csv", "CalCurCEAS_007_GPS.csv", "CalCurCEAS_008_GPS.csv","CalCurCEAS_009_GPS.csv", "CalCurCEAS_010_GPS.csv", "CalCurCEAS_011_GPS.csv", "CalCurCEAS_012_GPS.csv", "CalCurCEAS_013_GPS.csv", "CalCurCEAS_014_GPS.csv", "CalCurCEAS_015_GPS.csv", "CalCurCEAS_016_GPS.csv", "CalCurCEAS_017_GPS.csv", "CalCurCEAS_018_GPS.csv", "CalCurCEAS_019_GPS.csv")
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output2.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+# Get the list of CSV files in the folder
+csv_files <- c("CalCurCEAS_006_GPS.csv", "CalCurCEAS_007_GPS.csv", "CalCurCEAS_008_GPS.csv","CalCurCEAS_009_GPS.csv", "CalCurCEAS_010_GPS.csv", "CalCurCEAS_011_GPS.csv", "CalCurCEAS_012_GPS.csv", "CalCurCEAS_013_GPS.csv", "CalCurCEAS_014_GPS.csv", "CalCurCEAS_015_GPS.csv", "CalCurCEAS_016_GPS.csv", "CalCurCEAS_017_GPS.csv", "CalCurCEAS_018_GPS.csv", "CalCurCEAS_019_GPS.csv")
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output2.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+# Define the path to the "GPS data" folder
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+csv_files <- c("GPS data/CalCurCEAS_006_GPS.csv", "GPS data/CalCurCEAS_007_GPS.csv", "GPS data/CalCurCEAS_008_GPS.csv","GPS data/CalCurCEAS_009_GPS.csv", "GPS data/CalCurCEAS_010_GPS.csv", "GPS data/CalCurCEAS_011_GPS.csv", "GPS data/CalCurCEAS_012_GPS.csv", "GPS data/CalCurCEAS_013_GPS.csv", "GPS data/CalCurCEAS_014_GPS.csv", "GPS data/CalCurCEAS_015_GPS.csv", "GPS data/CalCurCEAS_016_GPS.csv", "GPS data/CalCurCEAS_017_GPS.csv", "GPS data/CalCurCEAS_018_GPS.csv", "GPS data/CalCurCEAS_019_GPS.csv")
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output2.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+create_kml_from_csv <- function(csv_files, kml_output) {
+# Create the KML structure with TimeSlider support
+kml_data <- newXMLNode("kml", attrs = c(xmlns = "http://www.opengis.net/kml/2.2"))
+document_node <- newXMLNode("Document", parent = kml_data)
+# Loop through each CSV file
+for (csv_file in csv_files) {
+# Read the CSV file
+data <- read.csv(csv_file)
+# Check for required columns
+if (!all(c("Latitude", "Longitude", "UTC") %in% colnames(data))) {
+stop(paste("CSV file", csv_file, "does not have the required columns"))
+}
+# Loop through each row of the CSV data
+for (i in 1:nrow(data)) {
+# Create a placemark for each row in the CSV
+placemark <- newXMLNode("Placemark", parent = document_node)
+# Add the name (can be based on the timestamp or other fields)
+newXMLNode("name", paste("Point at", data$UTC[i]), parent = placemark)
+# Add timestamp (convert to TimeStamp tag)
+time_node <- newXMLNode("TimeStamp", parent = placemark)
+newXMLNode("when", data$UTC[i], parent = time_node)
+# Add the Point and coordinates
+point_node <- newXMLNode("Point", parent = placemark)
+coords <- paste(data$Longitude[i], data$Latitude[i], "0", sep = ",")
+newXMLNode("coordinates", coords, parent = point_node)
+}
+}
+# Save the KML to the specified output file
+saveXML(kml_data, file = kml_output)
+cat("KML file created:", kml_output, "\n")
+}
+# Define the path to the "GPS data" folder
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+csv_files <- c("GPS data/CalCurCEAS_006_GPS.csv", "GPS data/CalCurCEAS_007_GPS.csv", "GPS data/CalCurCEAS_008_GPS.csv","GPS data/CalCurCEAS_009_GPS.csv", "GPS data/CalCurCEAS_010_GPS.csv", "GPS data/CalCurCEAS_011_GPS.csv", "GPS data/CalCurCEAS_012_GPS.csv", "GPS data/CalCurCEAS_013_GPS.csv", "GPS data/CalCurCEAS_014_GPS.csv", "GPS data/CalCurCEAS_015_GPS.csv", "GPS data/CalCurCEAS_016_GPS.csv", "GPS data/CalCurCEAS_017_GPS.csv", "GPS data/CalCurCEAS_018_GPS.csv", "GPS data/CalCurCEAS_019_GPS.csv")
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output2.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+knitr::opts_chunk$set(echo = TRUE)
+# Load packages
+library('tidyverse')
+library('xml2')
+data <- read.csv("CalCurCEAS_027_GPS.csv")
+knitr::opts_chunk$set(echo = TRUE)
+# Load packages
+library('tidyverse')
+library('xml2')
+data <- read.csv("GPS data/CalCurCEAS_027_GPS.csv")
+csv_files <- list.files(path = "GPS data/", pattern = "\\.csv$", full.names = TRUE)
+# Function to create KML from multiple CSV files using xml2
+create_kml_from_csv <- function(csv_files, kml_output) {
+# Create an empty KML structure using xml2
+kml_data <- xml_new_root("kml", xmlns = "http://www.opengis.net/kml/2.2")
+document_node <- xml_add_child(kml_data, "Document")
+# Loop through each CSV file
+for (csv_file in csv_files) {
+# Read the CSV file
+data <- read.csv(csv_file)
+# Check for required columns
+if (!all(c("Latitude", "Longitude", "UTC") %in% colnames(data))) {
+stop(paste("CSV file", csv_file, "does not have the required columns"))
+}
+# Loop through each row of the CSV data
+for (i in 1:nrow(data)) {
+# Create a placemark for each row in the CSV
+placemark <- xml_add_child(document_node, "Placemark")
+# Add the name (can be based on the timestamp or other fields)
+xml_add_child(placemark, "name", paste("Point at", data$UTC[i]))
+# Add timestamp (convert to TimeStamp tag)
+time_node <- xml_add_child(placemark, "TimeStamp")
+xml_add_child(time_node, "when", data$UTC[i])
+# Add the Point and coordinates
+point_node <- xml_add_child(placemark, "Point")
+coords <- paste(data$Longitude[i], data$Latitude[i], "0", sep = ",")
+xml_add_child(point_node, "coordinates", coords)
+}
+}
+# Save the KML to the specified output file
+write_xml(kml_data, kml_output)
+cat("KML file created:", kml_output, "\n")
+}
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+#csv_files <- c("GPS data/CalCurCEAS_006_GPS.csv", "GPS data/CalCurCEAS_007_GPS.csv", "GPS data/CalCurCEAS_008_GPS.csv","GPS data/CalCurCEAS_009_GPS.csv", "GPS data/CalCurCEAS_010_GPS.csv", "GPS data/CalCurCEAS_011_GPS.csv", "GPS data/CalCurCEAS_012_GPS.csv", "GPS data/CalCurCEAS_013_GPS.csv", "GPS data/CalCurCEAS_014_GPS.csv", "GPS data/CalCurCEAS_015_GPS.csv", "GPS data/CalCurCEAS_016_GPS.csv", "GPS data/CalCurCEAS_017_GPS.csv", "GPS data/CalCurCEAS_018_GPS.csv", "GPS data/CalCurCEAS_019_GPS.csv")
+csv_files <- c("GPS data/CalCurCEAS_006_GPS.csv", "GPS data/CalCurCEAS_007_GPS.csv")
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output2.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+folder_path <- "GPS data"
+# Get the list of CSV files in the folder
+#csv_files <- c("GPS data/CalCurCEAS_006_GPS.csv", "GPS data/CalCurCEAS_007_GPS.csv", "GPS data/CalCurCEAS_008_GPS.csv","GPS data/CalCurCEAS_009_GPS.csv", "GPS data/CalCurCEAS_010_GPS.csv", "GPS data/CalCurCEAS_011_GPS.csv", "GPS data/CalCurCEAS_012_GPS.csv", "GPS data/CalCurCEAS_013_GPS.csv", "GPS data/CalCurCEAS_014_GPS.csv", "GPS data/CalCurCEAS_015_GPS.csv", "GPS data/CalCurCEAS_016_GPS.csv", "GPS data/CalCurCEAS_017_GPS.csv", "GPS data/CalCurCEAS_018_GPS.csv", "GPS data/CalCurCEAS_019_GPS.csv")
+csv_files <- c("GPS data/CalCurCEAS_006_GPS.csv", "GPS data/CalCurCEAS_007_GPS.csv")
+# Check the CSV files in the folder
+print(csv_files)
+# Define the output KML file
+kml_output <- "output2.kml"
+# Create KML from the CSV files in the "GPS data" folder
+create_kml_from_csv(csv_files, kml_output)
+
+```
+
