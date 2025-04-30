@@ -1,2 +1,2 @@
 # myUtils
-Repo to store random cod e and tools 
+Repo to store random code and tools 
