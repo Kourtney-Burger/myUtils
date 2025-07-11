@@ -1,5 +1,5 @@
 ############## Example Workflow GLOBAL VARIABLES ################
-log_path <- "E:/risso-20250414/raw data" # Set path to Logs
+log_path <- "C:/Users/kourtney.burger/Documents/GitHub/myUtils/R/dmon_convert_wav/dmon_test_data" # Set path to Logs
 dep_ID <- "risso-20250414"# Set deployment ID 
 wav_path <- log_path
 
@@ -20,7 +20,7 @@ if (!dir.exists(output_dir)) {
 
 ############## RUN FUNCTIONS ################
 # PROCESS LOGS
-source("R/DMON_LogProcessing.r") # load functions from (link to GitHub once finalized)
+source("R/dmon_convert_wav/DMON_LogProcessing.r") # load functions from (link to GitHub once finalized)
 log_files <- list.files(log_path, pattern = "\\.log$", full.names = TRUE)
 all_duty_data <- do.call(rbind, lapply(log_files, process_log_file))
 

@@ -1,0 +1,5 @@
+Transfer started at 2025-06-02 08:58:20.058579 
+Uploading: testDoc.txt -> gs:// swfsc-1/testDoc.txt 
+SUCCESS: testDoc.txt 
+All files processed. 
+Transfer completed at 2025-06-02 08:58:30.169125 

@@ -1,3 +1,13 @@
+# Check for weekday and hour
+is_weekday = function(x){
+  weekdays = c('Thursday', 'Friday', 'Monday', 'Tuesday', 'Wednesday')
+  return(weekdays(x) %in% weekdays)
+}
+
+is_after_hours = function(x){
+  return(as.integer(format(x,"%H")) < 8 | as.integer(format(x, "%H")) > 17)
+}
+
 # Bucket to transfer to
 my_fmc_bucket_name = 'swfsc-1/drifting_recorder/ADRIFT'
 

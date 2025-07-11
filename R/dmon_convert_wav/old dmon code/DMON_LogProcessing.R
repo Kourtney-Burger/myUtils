@@ -19,12 +19,12 @@ parse_duty_lines <- function(line, log_num) {
   duty_data <- sub("\\*.*", "", parts[4])  # Remove anything after '*'
   
   # Extract hex substrings
-  start_hex     <- substr(duty_data, 1, 8)
-  start_ms_hex  <- substr(duty_data, 9, 12)
-  end_hex       <- substr(duty_data, 13, 20)
-  end_ms_hex    <- substr(duty_data, 21, 24)
-  hydrophone    <- substr(duty_data, 25, 25)
-  session_hex   <- substr(duty_data, 26, 33)
+  start_hex     <- substr(duty_data, 1, 8) # first 8 characters are seconds
+  start_ms_hex  <- substr(duty_data, 9, 12) # next 4 are milliseconds
+  end_hex       <- substr(duty_data, 13, 20) # next 8 are end seconds
+  end_ms_hex    <- substr(duty_data, 21, 24) # next 4 are end milliseconds
+  hydrophone    <- substr(duty_data, 25, 25) # LF or HF hydrophone number
+  session_hex   <- substr(duty_data, 26, 33) # 
   samples_hex   <- substr(duty_data, 34, 41)
   
   # Convert hex to values
