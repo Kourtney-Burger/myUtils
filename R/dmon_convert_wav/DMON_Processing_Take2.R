@@ -9,10 +9,6 @@ deployment <- "risso-04142025"
 raw_dir <- "C:/Users/kourtney.burger/Documents/Gliders/dmon/risso_April_deployment/raw/"
 processed_dir <- "C:/Users/kourtney.burger/Documents/Gliders/dmon/risso_April_deployment/processed/"
 
-# for testing
-# raw_dir <- "C:/Users/kourtney.burger/Documents/Gliders/dmon/risso_April_deployment/ifStatementTest/raw/"
-# processed_dir <- "C:/Users/kourtney.burger/Documents/Gliders/dmon/risso_April_deployment/ifStatementTest/processed/"
-
 ## ----Create Processed Directory----
 if (!dir.exists(processed_dir)) {
   dir.create(processed_dir)
@@ -143,9 +139,8 @@ for (file in wav_list) {
   file.copy(from = file, to = dest_file, overwrite = TRUE)
 }
 
-## ----segment renamed wavs using logs----
-### ----Low Frequency Continuous Data----
-#### ----list all LF data from wavs and logs----
+## ----Low Frequency Continuous Data----
+### ----list all LF data from wavs and logs----
 LF_wavs <- list.files(renamed_wav_dir, "\\_LF.wav$", full.names = TRUE)
 LF_logs <- final_df %>%
   filter(hydrophone_type == "LF")
@@ -156,20 +151,29 @@ if (!dir.exists(LF_dir)) {
   dir.create(LF_dir, recursive = TRUE)
 }
 
-#### ----segment data based on start times and samples from logs----
+### ----segment data based on start times and samples from logs----
 # read in first wav file 
 wav_data <- tuneR::readWave(LF_wavs[1])
 
-# set counter 
+# set counters 
 counter <- 1
+wav_counter <- 1
 
 for (i in 1:nrow(LF_logs)) {
-# for testing
-# for (i in 1:28) {
-    # create name string and path for segmented wav
-  start_time_str <- format(as.POSIXct(LF_logs$start_time[i], format =
-                                        "%Y-%m-%d %H:%M:%OS"), "%Y%m%d_%H%M%S")
-  base_name <- sub("\\.wav$", "", LF_logs$source_wav[i])
+  # create name string and path for segmented wav
+  start_time <- as.POSIXct(LF_logs$start_time[i], format = "%Y-%m-%d %H:%M:%OS")
+  main_time <- format(start_time, "%Y%m%d_%H%M%S")
+  ms <- sub("^[0-9]+\\.", "", format(start_time, "%OS6"))
+  start_time_str <- paste0(main_time, "_", ms)
+  
+  # name based on wav
+  # base_name <- sub("\\.wav$", "", basename(LF_wavs[wav_counter]))
+  
+  # name based on logs
+  # base_name <- sub("\\.wav$", "", LF_logs$source_wav[i])
+  
+  # name without base wav ###, based on deployment id 
+  base_name <- deployment
   filename <- paste0(base_name, "_", start_time_str, ".wav")
   
   out_path <- file.path(LF_dir, filename)
@@ -179,107 +183,53 @@ for (i in 1:nrow(LF_logs)) {
   end_sample <- start_sample + LF_logs$num_samples[i] - 1 # first segmented wav ends at sample length plus counter - 1
   
   # check end_sample exist in wav sample length and start an if statement
-  if (end_sample > length(wav_data@left)) {
-    # if end sample is greater then total samples, save leftover and concatenate
-    # with a piece of the next wav file
-    # save leftover samples (start_sample to end of that wav_data@left)
-    segment_leftover <- extractWave(wav_data, from = start_sample, to =
-                                       length(wav_data@left), xunit = "samples")
-    
-    # make object for number of samples already segmented and to be segmented
-    # already_segmented <- length(segment_leftover@left)
-    to_be_segmented <- LF_logs$num_samples[i] - already_segmented
-    
-    # check if this is the last log entry for wav file
-    source <- LF_logs$source_wav[i]
-    
-    if (i < nrow(LF_logs) && LF_logs$source_wav[i+1] == source) {
-      # this is not the last row, raise error
-      stop(paste("Segment overflows source_wav", source, "but it's not the last log entry for it. Check LF_logs."))
-    } else if (i < nrow(LF_logs)) {
-      # this is the last row, read next wav and concatenate
-      wav_file <- LF_logs$source_wav[i+1]
-      wav_data <- tuneR::readWave(paste0(renamed_wav_dir, "/", wav_file))
-      next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
-      
-      # combine two segments and write wav
-      combined_wav <- tuneR::bind(segment_leftover, next_wav_segment)
-      writeWave(combined_wav, filename = out_path)
-      
-      counter <- to_be_segmented + 1 
-    } else {
-      # this is the last row in LF_logs
-      stop("Reached last log row and cannot segment across files.")
-    }
-  } else {
+  if (end_sample <= length(wav_data@left)) {
     # if end sample is not greater then total samples, write full hour wav
     segment <- extractWave(wav_data, from = start_sample, to = end_sample,
                            xunit = "samples")
     writeWave(segment, filename = out_path)
     
-    # update counter for next wav
+    # update counter for next log entry 
     counter <- end_sample + 1
+  } else if (end_sample > length(wav_data@left)){
+    # if end sample is greater then total samples, save leftover and concatenate
+    # with a piece of the next wav file
+    # save leftover samples (start_sample to end of that wav_data@left)
+    segment_leftover <- extractWave(wav_data, from = start_sample, to =
+                                      length(wav_data@left), xunit = "samples")
+    
+    # check if we're at last wav file 
+   if (wav_counter == length(LF_wavs)) {
+     # save last segment from last wav file 
+     writeWave(segment_leftover, filename = out_path)
+     
+     # end loop
+     break
+   } 
+    
+    # make object for number of samples already segmented and to be segmented
+    already_segmented <- length(segment_leftover@left)
+    to_be_segmented <- LF_logs$num_samples[i] - already_segmented
+    
+    # look at next wav
+    wav_counter <- wav_counter + 1
+    
+    #read and extract segment from next wav
+    wav_data <- tuneR::readWave(LF_wavs[wav_counter])
+    next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
+    
+    # combine two segments and write wav
+    combined_wav <- tuneR::bind(segment_leftover, next_wav_segment)
+    writeWave(combined_wav, filename = out_path)
+    
+    counter <- to_be_segmented + 1 
+  } else {
+    stop("Error: End sample is not valid")
   }
 }
 
-
-# for (i in 1:nrow(LF_logs)) {
-#   # create name string and path for segmented wav
-#   start_time_str <- format(as.POSIXct(LF_logs$start_time[i], format =
-#                                       "%Y-%m-%d %H:%M:%OS"), "%Y%m%d_%H%M%S")
-#   base_name <- sub("\\.wav$", "", LF_logs$source_wav[i])
-#   filename <- paste0(base_name, "_", start_time_str, ".wav")
-# 
-#   out_path <- file.path(LF_dir, filename)
-# 
-#   # create start and end of segment
-#   start_sample <- counter # first segmented wav starts at sample #1
-#   end_sample <- start_sample + LF_logs$num_samples[i] - 1 # first segmented wav ends at sample length plus counter - 1
-#     
-#   # check end_sample exist in wav sample length and start an if statement
-#   if (end_sample > length(wav_data@left)) {
-#     # if end sample is greater then total samples, save leftover and concatenate
-#     # with a piece of the next wav file
-#     # save leftover samples (start_sample to end of that wav_data@left)
-#     segment_leftover <- extractWave(wav_data, from = start_sample, to =
-#                                      length(wav_data@left), xunit = "samples")
-#     
-#     # make object for number of samples already segmented and to be segmented
-#     already_segmented <- length(segment_leftover@left)
-#     to_be_segmented <- LF_logs$num_samples[i] - already_segmented
-#     
-#     # check if this is the last log entry for wav file
-#     source <- LF_logs$source_wav[i]
-#     
-#     if (i == nrow(LF_logs) || LF_logs$source_wav[i+1] != source) {
-#       # yes, last log row for source wav 
-#       # read in next wav file and save as segment
-#       wav_file <- LF_logs$source_wav[i+1]
-#       wav_data <- tuneR::readWave(paste0(renamed_wav_dir, "/", wav_file))
-#       next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
-# 
-#       # combine two segments and write wav
-#       combined_wav <- bind(already_segmented, next_wav_segment)
-#       writeWave(combined_wav, filename = out_path)
-#       
-#       counter <- to_be_segmented + 1 
-#     } else {
-#       # if end sample is not greater then total samples, write full hour wav
-#       segment <- extractWave(wav_data, from = start_sample, to = end_sample,
-#                              xunit = "samples")
-#       writeWave(segment, filename = out_path)
-#       
-#       # update counter for next wav
-#       counter <- end_sample + 1
-#     } else {
-#       # no - stop loop and send error message  
-#     }
-#   }
-# }
-
-
-### ----High Frequency Duty Cycled Data----
-#### ----list all HF data from wavs and logs----
+## ----High Frequency Duty Cycled Data----
+### ----list all HF data from wavs and logs----
 HF_wavs <- list.files(renamed_wav_dir, "\\_HF.wav$", full.names = TRUE)
 HF_logs <- final_df %>%
   filter(hydrophone_type == "HF")
@@ -290,42 +240,371 @@ if (!dir.exists(HF_dir)) {
   dir.create(HF_dir, recursive = TRUE)
 }
 
-#### ----segment data based on start times and samples from logs----
-for (wav in HF_wavs) {
-  # filter logs with matching wav name
-  log_entries <- HF_logs %>% filter(source_wav == basename(wav))
-  # skip if no matching log entries
-  if (nrow(log_entries) == 0) next
-  # read in wav data
-  wav_data <- tuneR::readWave(wav)
-  # initialize sampple counter
-  counter <- 1
+### ----segment data based on start times and samples from logs----
+# read in first wav file 
+wav_data <- tuneR::readWave(HF_wavs[1])
+
+# set counters 
+counter <- 1
+wav_counter <- 1
+
+for (i in 1:nrow(HF_logs)) {
+  # create name string and path for segmented wav
+  start_time <- as.POSIXct(HF_logs$start_time[i], format = "%Y-%m-%d %H:%M:%OS")
+  main_time <- format(start_time, "%Y%m%d_%H%M%S")
+  ms <- sub("^[0-9]+\\.", "", format(start_time, "%OS6"))
+  start_time_str <- paste0(main_time, "_", ms)
   
-  for (i in seq_len(nrow(log_entries))) {
-    # create name string using start time of each segmented wav
-    start_time_str <- format(as.POSIXct(log_entries$start_time[i], format =
-                                          "%Y-%m-%d %H:%M:%OS"), "%Y%m%d_%H%M%S")
-    base_name <- sub("\\.wav$", "", log_entries$source_wav[i])
-    filename <- paste0(base_name, "_", start_time_str, ".wav")
-    
-    # create path to save file to
-    out_path <- file.path(HF_dir, filename)
-    
-    # first segmented wav starts at sample #1
-    start_sample <- counter
-    # first segmented wav ends at sample length plus counter - 1
-    end_sample <- start_sample + log_entries$num_samples[i] - 1
-    
+  # name based on wav
+  # base_name <- sub("\\.wav$", "", basename(HF_wavs[wav_counter]))
+  
+  # name based on logs
+  # base_name <- sub("\\.wav$", "", HF_logs$source_wav[i])
+  
+  # name without base wav ###, based on deployment id 
+  base_name <- deployment
+  filename <- paste0(base_name, "_", start_time_str, ".wav")
+  
+  out_path <- file.path(HF_dir, filename)
+  
+  # create start and end of segment
+  start_sample <- counter # first segmented wav starts at sample #1
+  end_sample <- start_sample + HF_logs$num_samples[i] - 1 # first segmented wav ends at sample length plus counter - 1
+  
+  # check end_sample exist in wav sample length and start an if statement
+  if (end_sample <= length(wav_data@left)) {
+    # if end sample is not greater then total samples, write full hour wav
     segment <- extractWave(wav_data, from = start_sample, to = end_sample,
                            xunit = "samples")
-    
-    # # save segment start and end
-    # segment <- wav_data[start_sample:end_sample]
-    
-    # write the newly segmented wav
     writeWave(segment, filename = out_path)
     
-    # update counter for next wav
+    # update counter for next log entry 
     counter <- end_sample + 1
+  } else if (end_sample > length(wav_data@left)){
+    # if end sample is greater then total samples, save leftover and concatenate
+    # with a piece of the next wav file
+    # save leftover samples (start_sample to end of that wav_data@left)
+    segment_leftover <- extractWave(wav_data, from = start_sample, to =
+                                      length(wav_data@left), xunit = "samples")
+    
+    # check if we're at last wav file 
+    if (wav_counter == length(HF_wavs)) {
+      # save last segment from last wav file 
+      writeWave(segment_leftover, filename = out_path)
+      
+      # end loop
+      break
+    } 
+    
+    # make object for number of samples already segmented and to be segmented
+    already_segmented <- length(segment_leftover@left)
+    to_be_segmented <- HF_logs$num_samples[i] - already_segmented
+    
+    # look at next wav
+    wav_counter <- wav_counter + 1
+    
+    #read and extract segment from next wav
+    wav_data <- tuneR::readWave(HF_wavs[wav_counter])
+    next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
+    
+    # combine two segments and write wav
+    combined_wav <- tuneR::bind(segment_leftover, next_wav_segment)
+    writeWave(combined_wav, filename = out_path)
+    
+    counter <- to_be_segmented + 1 
+  } else {
+    stop("Error: End sample is not valid")
   }
 }
+
+
+
+
+# ----OLD CODE----
+# # ROUGH OUTLINE OF CHANGES FROM SELENE
+# for (i in 1:nrow(LF_logs)) {
+# #for testing
+# #for (i in 1:29) {
+#   # create name string and path for segmented wav
+#   start_time_str <- format(as.POSIXct(LF_logs$start_time[i], format =
+#                                         "%Y-%m-%d %H:%M:%OS"), "%Y%m%d_%H%M%S")
+#   base_name <- sub("\\.wav$", "", LF_logs$source_wav[i])
+#   filename <- paste0(base_name, "_", start_time_str, ".wav")
+#   
+#   out_path <- file.path(LF_dir, filename)
+#   
+#   # create start and end of segment
+#   start_sample <- counter # first segmented wav starts at sample #1
+#   end_sample <- start_sample + LF_logs$num_samples[i] - 1 # first segmented wav ends at sample length plus counter - 1
+#   
+#   # check end_sample exist in wav sample length and start an if statement
+#   if (end_sample > length(wav_data@left)) {
+#     # if end sample is greater then total samples, save leftover and concatenate
+#     # with a piece of the next wav file
+#     # save leftover samples (start_sample to end of that wav_data@left)
+#     segment_leftover <- extractWave(wav_data, from = start_sample, to =
+#                                       length(wav_data@left), xunit = "samples")
+#     
+#     # make object for number of samples already segmented and to be segmented
+#     already_segmented <- length(segment_leftover@left)
+#     to_be_segmented <- LF_logs$num_samples[i] - already_segmented
+#     
+#     # check if this is the last log entry for wav file
+#     # THIS IS NOT WORKING AS EXPECTED - for transition from risso2 to risso3, this soruce is listed as risso003 because we have already jumped to i = 31, so the next if statement wil be false
+#     source <- LF_logs$source_wav[i]
+#     
+#     if (LF_logs$source_wav[i+1] != source) { # this is not working because sometimes i is more than 1 ahead of the previous wav file (line 32 in excel example)
+#       # last log row for source wav so read in next wav file and save as segment
+#       wav_file <- LF_logs$source_wav[i+1]
+#       wav_data <- tuneR::readWave(paste0(renamed_wav_dir, "/", wav_file))
+#       next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
+#       
+#       # combine two segments and write wav
+#       combined_wav <- tuneR::bind(segment_leftover, next_wav_segment)
+#       writeWave(combined_wav, filename = out_path)
+#       
+#       counter <- to_be_segmented + 1
+#     } else {
+#       stop("Error: End sample is greater than the total wav samples but this is not the last row of a log source")  
+#     } 
+#   } else {
+#     # if end sample is not greater then total samples, write full hour wav
+#     segment <- extractWave(wav_data, from = start_sample, to = end_sample,
+#                            xunit = "samples")
+#     writeWave(segment, filename = out_path)
+#     
+#     # update counter for next wav
+#     counter <- end_sample + 1
+#   }
+# }
+
+# ROUGH OUTLINE OF CHANGES FROM SELENE
+# for (i in 1:nrow(LF_logs)) {
+# #for testing
+# #for (i in 1:29) {
+#   # create name string and path for segmented wav
+#   start_time_str <- format(as.POSIXct(LF_logs$start_time[i], format =
+#                                         "%Y-%m-%d %H:%M:%OS"), "%Y%m%d_%H%M%S")
+#   base_name <- sub("\\.wav$", "", LF_logs$source_wav[i])
+#   filename <- paste0(base_name, "_", start_time_str, ".wav")
+#   
+#   out_path <- file.path(LF_dir, filename)
+#   
+#   # create start and end of segment
+#   start_sample <- counter # first segmented wav starts at sample #1
+#   end_sample <- start_sample + LF_logs$num_samples[i] - 1 # first segmented wav ends at sample length plus counter - 1
+#   
+#   # check end_sample exist in wav sample length and start an if statement
+#   if (end_sample > length(wav_data@left)) {
+#     # if end sample is greater then total samples, save leftover and concatenate
+#     # with a piece of the next wav file
+#     # save leftover samples (start_sample to end of that wav_data@left)
+#     segment_leftover <- extractWave(wav_data, from = start_sample, to =
+#                                       length(wav_data@left), xunit = "samples")
+#     
+#     # make object for number of samples already segmented and to be segmented
+#     already_segmented <- length(segment_leftover@left)
+#     to_be_segmented <- LF_logs$num_samples[i] - already_segmented
+#     
+#     # check if this is the last log entry for wav file
+#     # THIS IS NOT WORKING AS EXPECTED - for transition from risso2 to risso3, this soruce is listed as risso003 because we have already jumped to i = 31, so the next if statement wil be false
+#     source <- LF_logs$source_wav[i]
+#     
+#     if (LF_logs$source_wav[i+1] != source) { # this is not working because sometimes i is more than 1 ahead of the previous wav file (line 32 in excel example)
+#       # last log row for source wav so read in next wav file and save as segment
+#       wav_file <- LF_logs$source_wav[i+1]
+#       wav_data <- tuneR::readWave(paste0(renamed_wav_dir, "/", wav_file))
+#       next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
+#       
+#       # combine two segments and write wav
+#       combined_wav <- tuneR::bind(segment_leftover, next_wav_segment)
+#       writeWave(combined_wav, filename = out_path)
+#       
+#       counter <- to_be_segmented + 1
+#     } else {
+#       stop("Error: End sample is greater than the total wav samples but this is not the last row of a log source")  
+#     } 
+#   } else {
+#     # if end sample is not greater then total samples, write full hour wav
+#     segment <- extractWave(wav_data, from = start_sample, to = end_sample,
+#                            xunit = "samples")
+#     writeWave(segment, filename = out_path)
+#     
+#     # update counter for next wav
+#     counter <- end_sample + 1
+#   }
+# }
+
+
+
+# # ROUGH OUTLINE OF CHANGES FROM SELENE
+# for (i in 1:nrow(LF_logs)) {
+# #for testing
+# #for (i in 1:29) {
+#   # create name string and path for segmented wav
+#   start_time_str <- format(as.POSIXct(LF_logs$start_time[i], format =
+#                                         "%Y-%m-%d %H:%M:%OS"), "%Y%m%d_%H%M%S")
+#   base_name <- sub("\\.wav$", "", LF_logs$source_wav[i])
+#   filename <- paste0(base_name, "_", start_time_str, ".wav")
+#   
+#   out_path <- file.path(LF_dir, filename)
+#   
+#   # create start and end of segment
+#   start_sample <- counter # first segmented wav starts at sample #1
+#   end_sample <- start_sample + LF_logs$num_samples[i] - 1 # first segmented wav ends at sample length plus counter - 1
+#   
+#   # check end_sample exist in wav sample length and start an if statement
+#   if (end_sample > length(wav_data@left)) {
+#     # if end sample is greater then total samples, save leftover and concatenate
+#     # with a piece of the next wav file
+#     # save leftover samples (start_sample to end of that wav_data@left)
+#     segment_leftover <- extractWave(wav_data, from = start_sample, to =
+#                                       length(wav_data@left), xunit = "samples")
+#     
+#     # make object for number of samples already segmented and to be segmented
+#     already_segmented <- length(segment_leftover@left)
+#     to_be_segmented <- LF_logs$num_samples[i] - already_segmented
+#     
+#     # check if this is the last log entry for wav file
+#     # THIS IS NOT WORKING AS EXPECTED - for transition from risso2 to risso3, this soruce is listed as risso003 because we have already jumped to i = 31, so the next if statement wil be false
+#     source <- LF_logs$source_wav[i]
+#     
+#     if (LF_logs$source_wav[i+1] != source) { # this is not working because sometimes i is more than 1 ahead of the previous wav file (line 32 in excel example)
+#       # last log row for source wav so read in next wav file and save as segment
+#       wav_file <- LF_logs$source_wav[i+1]
+#       wav_data <- tuneR::readWave(paste0(renamed_wav_dir, "/", wav_file))
+#       next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
+#       
+#       # combine two segments and write wav
+#       combined_wav <- tuneR::bind(segment_leftover, next_wav_segment)
+#       writeWave(combined_wav, filename = out_path)
+#       
+#       counter <- to_be_segmented + 1
+#     } else {
+#       stop("Error: End sample is greater than the total wav samples but this is not the last row of a log source")  
+#     } 
+#   } else {
+#     # if end sample is not greater then total samples, write full hour wav
+#     segment <- extractWave(wav_data, from = start_sample, to = end_sample,
+#                            xunit = "samples")
+#     writeWave(segment, filename = out_path)
+#     
+#     # update counter for next wav
+#     counter <- end_sample + 1
+#   }
+# }
+
+# TRIED DIFFERENT IF STATEMENTS FOR SCENARIOS
+# for (i in 1:nrow(LF_logs)) {
+# # for testing
+# # for (i in 1:28) {
+#   # create name string and path for segmented wav
+#   start_time_str <- format(as.POSIXct(LF_logs$start_time[i], format =
+#                                         "%Y-%m-%d %H:%M:%OS"), "%Y%m%d_%H%M%S")
+#   base_name <- sub("\\.wav$", "", LF_logs$source_wav[i])
+#   filename <- paste0(base_name, "_", start_time_str, ".wav")
+# 
+#   out_path <- file.path(LF_dir, filename)
+# 
+#   # create start and end of segment
+#   start_sample <- counter # first segmented wav starts at sample #1
+#   end_sample <- start_sample + LF_logs$num_samples[i] - 1 # first segmented wav ends at sample length plus counter - 1
+# 
+#   # set object for wav we are working with
+#   source <- LF_logs$source_wav[i]
+#   
+#   # check if end_sample exist in wav sample length and start an if statement
+#   if (end_sample > length(wav_data@left) || LF_logs$source_wav[i+1] != source) {
+#     # if end sample is greater then total samples or this is the last log for wav, 
+#     # save leftover and concatenate with a piece of the next wav file
+#     # save leftover samples (start_sample to end of that wav_data@left)
+#     segment_leftover <- extractWave(wav_data, from = start_sample, to =
+#                                        length(wav_data@left), xunit = "samples")
+# 
+#     # make object for number of samples already segmented and to be segmented
+#     already_segmented <- length(segment_leftover@left)
+#     to_be_segmented <- LF_logs$num_samples[i] - already_segmented
+#     
+#     
+#     # this is the last row, read next wav and concatenate
+#     wav_file <- LF_logs$source_wav[i+1]
+#     wav_data <- tuneR::readWave(paste0(renamed_wav_dir, "/", wav_file))
+#     next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
+#     
+#     # combine two segments and write wav
+#     combined_wav <- tuneR::bind(segment_leftover, next_wav_segment)
+#     writeWave(combined_wav, filename = out_path)
+#     
+#     counter <- to_be_segmented + 1
+#   } else {
+#     # if end sample is not greater then total samples or this is not the last 
+#     # log for a wav, write full hour wav
+#     segment <- extractWave(wav_data, from = start_sample, to = end_sample,
+#                            xunit = "samples")
+#     writeWave(segment, filename = out_path)
+#     
+#     # update counter for next wav
+#     counter <- end_sample + 1
+#   }
+# }
+
+
+# SET UP IF STATEMENTS INCORRECTLY - TRYING TO APPLY CHANGES BUT NOT WORKING FOR ALL SCENARIOS 
+# for (i in 1:nrow(LF_logs)) {
+# # for testing
+# # for (i in 1:28) {
+#     # create name string and path for segmented wav
+#   start_time_str <- format(as.POSIXct(LF_logs$start_time[i], format =
+#                                         "%Y-%m-%d %H:%M:%OS"), "%Y%m%d_%H%M%S")
+#   base_name <- sub("\\.wav$", "", LF_logs$source_wav[i])
+#   filename <- paste0(base_name, "_", start_time_str, ".wav")
+#   
+#   out_path <- file.path(LF_dir, filename)
+#   
+#   # create start and end of segment
+#   start_sample <- counter # first segmented wav starts at sample #1
+#   end_sample <- start_sample + LF_logs$num_samples[i] - 1 # first segmented wav ends at sample length plus counter - 1
+#   
+#   # check end_sample exist in wav sample length and start an if statement
+#   if (end_sample > length(wav_data@left)) {
+#     # if end sample is greater then total samples, save leftover and concatenate
+#     # with a piece of the next wav file
+#     # save leftover samples (start_sample to end of that wav_data@left)
+#     segment_leftover <- extractWave(wav_data, from = start_sample, to =
+#                                        length(wav_data@left), xunit = "samples")
+#     
+#     # make object for number of samples already segmented and to be segmented
+#     # already_segmented <- length(segment_leftover@left)
+#     to_be_segmented <- LF_logs$num_samples[i] - already_segmented
+#     
+#     # check if this is the last log entry for wav file
+#     source <- LF_logs$source_wav[i]
+#     
+#     if (i < nrow(LF_logs) && LF_logs$source_wav[i+1] == source) {
+#       # this is not the last row, raise error
+#       stop(paste("Segment overflows source_wav", source, "but it's not the last log entry for it. Check LF_logs."))
+#     } else if (i < nrow(LF_logs)) {
+#       # this is the last row, read next wav and concatenate
+#       wav_file <- LF_logs$source_wav[i+1]
+#       wav_data <- tuneR::readWave(paste0(renamed_wav_dir, "/", wav_file))
+#       next_wav_segment <- extractWave(wav_data, from = 1, to = to_be_segmented)
+#       
+#       # combine two segments and write wav
+#       combined_wav <- tuneR::bind(segment_leftover, next_wav_segment)
+#       writeWave(combined_wav, filename = out_path)
+#       
+#       counter <- to_be_segmented + 1 
+#     } else {
+#       # this is the last row in LF_logs
+#       stop("Reached last log row and cannot segment across files.")
+#     }
+#   } else {
+#     # if end sample is not greater then total samples, write full hour wav
+#     segment <- extractWave(wav_data, from = start_sample, to = end_sample,
+#                            xunit = "samples")
+#     writeWave(segment, filename = out_path)
+#     
+#     # update counter for next wav
+#     counter <- end_sample + 1
+#   }
+# }
