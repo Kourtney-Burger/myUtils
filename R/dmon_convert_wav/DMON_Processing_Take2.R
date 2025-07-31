@@ -174,7 +174,7 @@ for (i in 1:nrow(LF_logs)) {
   
   # name without base wav ###, based on deployment id 
   base_name <- deployment
-  filename <- paste0(base_name, "_", start_time_str, ".wav")
+  filename <- paste0(base_name, "_2kHz_", start_time_str, ".wav")
   
   out_path <- file.path(LF_dir, filename)
   
@@ -263,7 +263,7 @@ for (i in 1:nrow(HF_logs)) {
   
   # name without base wav ###, based on deployment id 
   base_name <- deployment
-  filename <- paste0(base_name, "_", start_time_str, ".wav")
+  filename <- paste0(base_name, "_2kHz_", start_time_str, ".wav")
   
   out_path <- file.path(HF_dir, filename)
   
