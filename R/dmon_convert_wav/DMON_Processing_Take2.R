@@ -6,8 +6,8 @@ library(lubridate)
 
 ## ----Global Variables----
 deployment <- "risso-04142025"
-raw_dir <- "C:/Users/kourtney.burger/Documents/Gliders/dmon/risso_April_deployment/raw/"
-processed_dir <- "C:/Users/kourtney.burger/Documents/Gliders/dmon/risso_April_deployment/processed/"
+raw_dir <- "G:/risso-20250414/raw"
+processed_dir <- "G:/risso-20250414/processed r/"
 
 ## ----Create Processed Directory----
 if (!dir.exists(processed_dir)) {
